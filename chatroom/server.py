@@ -6,7 +6,7 @@ class Server:
         self.hostname = hostname
         self.port = port
 
-    async def start(self):
+    async def start_server(self):
         await asyncio.start_server(self.callback, self.hostname, self.port)
         while True:
             await asyncio.sleep(1)
@@ -16,4 +16,4 @@ class Server:
 
 if __name__ == "__main__":
     server = Server()
-    asyncio.run(server.start())
+    asyncio.run(server.start_server())
