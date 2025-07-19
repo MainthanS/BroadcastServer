@@ -8,13 +8,15 @@ class Client:
         self.id = writer._transport._sock_fd
 
     async def read_message(self):
-        pass
+        return await self._reader.readline()
 
-    async def write_message(self):
-        pass
+    async def write_message(self, message):
+        self._writer.write(message)
+        await self._writer.drain()
 
     async def close(self):
-        pass
+        self._writer.close()
+        await self._writer.wait_closed()
 
 
 class Server:
