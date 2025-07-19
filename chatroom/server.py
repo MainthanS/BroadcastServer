@@ -23,11 +23,19 @@ class Server:
         print("Registered task")
 
     async def client_messages_server(self, reader, writer):
+
+        # BUG: Only first message is echo'd, and will be spammed without upon disconnect
         message = await reader.readline()
-        print(message)
-        if not message:
-            # TODO: Deregister client
-            pass
+        while message:
+            print(message)
+            await reader.readline()
+
+        # TODO: Deregister client
+
+        # print(message)
+        # if not message:
+        #     # TODO: Deregister client
+        #     pass
 
 
 if __name__ == "__main__":
