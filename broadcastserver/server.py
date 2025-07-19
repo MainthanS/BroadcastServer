@@ -1,6 +1,10 @@
 import asyncio
 
 
+class ClientDisconnectedError(Exception):
+    """Exception raised when attempting to write to a disconnected client."""
+
+
 class Client:
     def __init__(self, reader, writer):
         self._reader = reader
@@ -11,8 +15,11 @@ class Client:
         return await self._reader.readline()
 
     async def write_message(self, message):
-        self._writer.write(message)
-        await self._writer.drain()
+        try:
+            self._writer.write(message)
+            await self._writer.drain()
+        except ConnectionResetError as e:
+            raise ClientDisconnectedError from e
 
     async def close(self):
         self._writer.close()
