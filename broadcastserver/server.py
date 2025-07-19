@@ -19,6 +19,7 @@ class Client:
             self._writer.write(message)
             await self._writer.drain()
         except ConnectionResetError as e:
+            await self.close()
             raise ClientDisconnectedError from e
 
     async def close(self):
