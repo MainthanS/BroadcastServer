@@ -33,12 +33,8 @@ class Server:
                 await writer.drain()
             message = await reader.readline()
 
-        # TODO: Deregister client
-
-        # print(message)
-        # if not message:
-        #     # TODO: Deregister client
-        #     pass
+        # BUG: After a client disconnects, the server stops broadcasting shortly after
+        self.clients.remove((reader, writer))
 
 
 if __name__ == "__main__":
