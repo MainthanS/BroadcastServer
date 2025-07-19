@@ -27,6 +27,8 @@ class Server:
         message = await reader.readline()
         while message:
             print(message)
+            writer.write(message)
+            await writer.drain()
             message = await reader.readline()
 
         # TODO: Deregister client
