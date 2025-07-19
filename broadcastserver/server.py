@@ -21,7 +21,7 @@ class Client:
 
 class Server:
     def __init__(self, host="localhost", port=40004):
-        self.clients = []  # Can this be a set or a dict?
+        self.clients = []
         self.host = host
         self.port = port
         self.background_tasks = set()
@@ -45,10 +45,12 @@ class Server:
         message = await client.read_message()
         while message:
             print(f"User {client.id}: {message}")
+            # Possible race condition?
             for client_ in self.clients:
-                # Shouldn't iterate synchronously, and must remove old writers
                 print(f"Broadcasting to {client_.id}")
-                await client_.write_message(message)
+                task = asyncio.create_task(client_.write_message(message))
+                self.background_tasks.add(task)
+                task.add_done_callback(self.background_tasks.discard)
                 # TODO: Add timeout and close writer if it takes too long
             message = await client.read_message()
 
