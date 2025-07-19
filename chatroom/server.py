@@ -17,7 +17,8 @@ class Server:
                 if not message:
                     self.clients.remove((reader, writer))
                 # Why does this keep printing even after I exit netcat?
-                # Oh.. no logic to remover them from self.clients after they disconnect...
+                # Oh.. no logic to remover them from self.clients after they
+                # disconnect...
             await asyncio.sleep(1)
 
     def client_connected_cb(self, reader, writer):
