@@ -26,14 +26,15 @@ class Server:
 
         message = await reader.readline()
         while message:
-            print(message)
-            for _, writer in self.clients:
+            print(writer._transport._sock_fd, message)
+            for _, writer_ in self.clients:
                 # Shouldn't iterate synchronously, and must remove old writers
-                writer.write(message)
-                await writer.drain()
+                print("messaging", writer_._transport._sock_fd)
+                writer_.write(message)
+                await writer_.drain()
             message = await reader.readline()
 
-        # BUG: After a client disconnects, the server stops broadcasting shortly after
+        print(f"Client {writer._transport._sock_fd} disconnected")
         self.clients.remove((reader, writer))
 
 
