@@ -17,7 +17,8 @@ class Server:
 
     def client_connected_cb(self, reader, writer):
         self.clients.append((reader, writer))
-        task = asyncio.create_task(self.client_messages_server(reader, writer))
+        task = asyncio.create_task(
+            self.client_messages_server(reader, writer))
         self.background_tasks.add(task)
         print("Registered task")
 
@@ -25,9 +26,8 @@ class Server:
         message = await reader.readline()
         print(message)
         if not message:
-            # TODO: Deregister client
+            # TODO: Deregister client
             pass
-
 
 
 if __name__ == "__main__":
