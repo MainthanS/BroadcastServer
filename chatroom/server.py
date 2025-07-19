@@ -1,6 +1,22 @@
 import asyncio
 
 
+class Client:
+    def __init__(self, reader, writer):
+        self._reader = reader
+        self._writer = writer
+        self.id = writer._transport._sock_fd
+
+    async def read_message(self):
+        pass
+
+    async def write_message(self):
+        pass
+
+    async def close(self):
+        pass
+
+
 class Server:
     def __init__(self, host="localhost", port=40004):
         self.clients = []  # Can this be a set or a dict?
