@@ -24,11 +24,10 @@ class Server:
 
     async def client_messages_server(self, reader, writer):
 
-        # BUG: Only first message is echo'd, and will be spammed without upon disconnect
         message = await reader.readline()
         while message:
             print(message)
-            await reader.readline()
+            message = await reader.readline()
 
         # TODO: Deregister client
 
