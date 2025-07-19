@@ -34,28 +34,27 @@ class Server:
             await self._server.serve_forever()
 
     def client_connected_cb(self, reader, writer):
-        self.clients.append((reader, writer))
+        client = Client(reader, writer)
+        self.clients.append(client)
         task = asyncio.create_task(
-            self.client_messages_server(reader, writer))
+            self.client_messages_server(client))
         self.background_tasks.add(task)
-        print("Registered task")
+        print(f"Registered callback for client {client.id}")
 
-    async def client_messages_server(self, reader, writer):
-        message = await reader.readline()
+    async def client_messages_server(self, client):
+        message = await client.read_message()
         while message:
-            print(writer._transport._sock_fd, message)
-            for _, writer_ in self.clients:
+            print(f"User {client.id}: {message}")
+            for client_ in self.clients:
                 # Shouldn't iterate synchronously, and must remove old writers
-                print("messaging", writer_._transport._sock_fd)
-                writer_.write(message) # TODO: Add timeout and close writer if it takes too long
-                await writer_.drain()
-            message = await reader.readline()
+                print(f"Broadcasting to {client_.id}")
+                await client_.write_message(message)
+                # TODO: Add timeout and close writer if it takes too long
+            message = await client.read_message()
 
-
-        print(f"Client {writer._transport._sock_fd} disconnected")
-        self.clients.remove((reader, writer))
-        writer.close()
-        await writer.wait_closed()
+        print(f"User {client.id} disconnected")
+        self.clients.remove(client)
+        await client.close()
         # ConnectionResetError: Connection lost is the error if you try to write to a closed writer
 
     # TODO: A Server.close() coroutine? Then can make Server an async context manager too
