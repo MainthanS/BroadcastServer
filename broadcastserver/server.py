@@ -58,6 +58,8 @@ class Server:
         await writer.wait_closed()
         # ConnectionResetError: Connection lost is the error if you try to write to a closed writer
 
+    # TODO: A Server.close() coroutine? Then can make Server an async context manager too
+
 
 if __name__ == "__main__":
     server = Server()
