@@ -30,11 +30,14 @@ class Server:
             for _, writer_ in self.clients:
                 # Shouldn't iterate synchronously, and must remove old writers
                 print("messaging", writer_._transport._sock_fd)
-                writer_.write(message)
+                writer_.write(message) # TODO: Add timeout and close writer if it takes too long
                 await writer_.drain()
             message = await reader.readline()
 
+        # ConnectionResetError: Connection lost is the error if you try to write to a closed writer
+
         print(f"Client {writer._transport._sock_fd} disconnected")
+        # TODO close writer
         self.clients.remove((reader, writer))
 
 
