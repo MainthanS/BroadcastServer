@@ -34,11 +34,12 @@ class Server:
                 await writer_.drain()
             message = await reader.readline()
 
-        # ConnectionResetError: Connection lost is the error if you try to write to a closed writer
 
         print(f"Client {writer._transport._sock_fd} disconnected")
-        # TODO close writer
         self.clients.remove((reader, writer))
+        writer.close()
+        await writer.wait_closed()
+        # ConnectionResetError: Connection lost is the error if you try to write to a closed writer
 
 
 if __name__ == "__main__":
