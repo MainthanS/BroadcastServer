@@ -23,7 +23,6 @@ class Server:
         print("Registered task")
 
     async def client_messages_server(self, reader, writer):
-
         message = await reader.readline()
         while message:
             print(writer._transport._sock_fd, message)
