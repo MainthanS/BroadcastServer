@@ -66,7 +66,6 @@ class Server:
         print(f"User {client.id} disconnected")
         self.clients.remove(client)
         await client.close()
-        # ConnectionResetError: Connection lost is the error if you try to write to a closed writer
 
     # TODO: A Server.close() coroutine? Then can make Server an async context manager too
 
