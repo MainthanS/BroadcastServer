@@ -19,6 +19,7 @@ class Client:
             self._writer.write(message)
             await self._writer.drain()
         except ConnectionResetError as e:
+            # TODO: Client must be removed from Server.clients too
             await self.close()
             raise ClientDisconnectedError from e
 
@@ -54,7 +55,6 @@ class Server:
         message = await client.read_message()
         while message:
             print(f"User {client.id}: {message}")
-            # Possible race condition?
             for client_ in self.clients:
                 print(f"Broadcasting to {client_.id}")
                 task = asyncio.create_task(client_.write_message(message))
