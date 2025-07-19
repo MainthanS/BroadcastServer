@@ -39,6 +39,7 @@ class Server:
         task = asyncio.create_task(
             self.client_messages_server(client))
         self.background_tasks.add(task)
+        task.add_done_callback(self.background_tasks.discard)
         print(f"Registered callback for client {client.id}")
 
     async def client_messages_server(self, client):
