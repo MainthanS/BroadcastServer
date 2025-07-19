@@ -27,8 +27,10 @@ class Server:
         message = await reader.readline()
         while message:
             print(message)
-            writer.write(message)
-            await writer.drain()
+            for _, writer in self.clients:
+                # Shouldn't iterate synchronously, and must remove old writers
+                writer.write(message)
+                await writer.drain()
             message = await reader.readline()
 
         # TODO: Deregister client
