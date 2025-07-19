@@ -6,21 +6,28 @@ class Server:
         self.clients = []  # Can this be a set or a dict?
         self.host = host
         self.port = port
+        self.background_tasks = set()
 
     async def start_server(self):
-        await asyncio.start_server(
+        self._server = await asyncio.start_server(
             self.client_connected_cb, self.host, self.port)
 
-        while True:
-            for reader, writer in self.clients:
-                message = await reader.readline()
-                print(message)
-                if not message:
-                    self.clients.remove((reader, writer))
-            await asyncio.sleep(1)
+        async with self._server:
+            await self._server.serve_forever()
 
     def client_connected_cb(self, reader, writer):
         self.clients.append((reader, writer))
+        task = asyncio.create_task(self.client_messages_server(reader, writer))
+        self.background_tasks.add(task)
+        print("Registered task")
+
+    async def client_messages_server(self, reader, writer):
+        message = await reader.readline()
+        print(message)
+        if not message:
+            # TODO: Deregister client
+            pass
+
 
 
 if __name__ == "__main__":
