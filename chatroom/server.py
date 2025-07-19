@@ -1,8 +1,9 @@
 import asyncio
 
+
 class Server:
     def __init__(self, host="localhost", port=40004):
-        self.clients = [] # can this be a set or a dict?
+        self.clients = []  # Can this be a set or a dict?
         self.host = host
         self.port = port
 
@@ -23,6 +24,7 @@ class Server:
 
     def client_connected_cb(self, reader, writer):
         self.clients.append((reader, writer))
+
 
 if __name__ == "__main__":
     server = Server()
