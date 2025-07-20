@@ -41,11 +41,15 @@ class Client:
 
 class Server:
     def __init__(self, host="localhost", port=40004):
-        self.clients = [] # Not needed now?
         self.host = host
         self.port = port
+
+        # Map client.id to associated Client object and Client-Handler Task
         self._client_mapping = dict()
         self._task_mapping = dict()
+
+        # Stores references to Message-Handler Tasks so they aren't
+        # garbage collected
         self.background_tasks = set()
 
     async def start_server(self):
