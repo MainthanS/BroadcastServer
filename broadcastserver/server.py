@@ -3,6 +3,9 @@ import asyncio
 
 class ClientDisconnectedError(Exception):
     """Exception raised when attempting to write to a disconnected client."""
+    def __init__(self, client_id):
+        super().__init__(f"ClientDisconnectedError with {client_id=}")
+        self.client_id = client_id
 
 
 class Client:
@@ -21,7 +24,7 @@ class Client:
         except ConnectionResetError as e:
             # TODO: Client must be removed from Server.clients too
             await self.close()
-            raise ClientDisconnectedError from e
+            raise ClientDisconnectedError(client_id=self.id) from e
 
     async def close(self):
         self._writer.close()
@@ -34,6 +37,7 @@ class Server:
         self.host = host
         self.port = port
         self.background_tasks = set()
+        #self.background_tasks = dict()
 
     async def start_server(self):
         self._server = await asyncio.start_server(
@@ -48,8 +52,22 @@ class Server:
         task = asyncio.create_task(
             self.client_messages_server(client))
         self.background_tasks.add(task)
+        #self.background_tasks.update({client.id: task})
         task.add_done_callback(self.background_tasks.discard)
+        #task.add_done_callback(
+        #    lambda x: self.background_tasks.pop(client.id))
         print(f"Registered callback for client {client.id}")
+
+    # TODO: cleanup
+    def client_exception_cb(self, task):
+        if (exc := task.exception()) is not None:
+            if isinstance(exc, ClientDisconnectedError):
+                print(exc)
+                print(f"Deleting client {exc.client_id} from client list")
+            else:
+                print(exc)
+                print("Some other exception")
+
 
     async def client_messages_server(self, client):
         message = await client.read_message()
@@ -60,11 +78,13 @@ class Server:
                 task = asyncio.create_task(client_.write_message(message))
                 self.background_tasks.add(task)
                 task.add_done_callback(self.background_tasks.discard)
+                task.add_done_callback(self.client_exception_cb)
                 # TODO: Add timeout and close writer if it takes too long
             message = await client.read_message()
 
         print(f"User {client.id} disconnected")
-        self.clients.remove(client)
+        # XXX tmp debugging
+        #self.clients.remove(client)
         await client.close()
 
     # TODO: A Server.close() coroutine? Then can make Server an async context manager too
