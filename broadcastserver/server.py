@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -61,53 +62,87 @@ class Server:
         client = Client(reader, writer)
         logger.info("Client %d connected", client.id)
         self._client_mapping[client.id] = client
-        logger.debug("Updated _client_mapping with client id %d", client.id)
-        task = asyncio.create_task(
-            self.client_messages_server(client))
-        self._task_mapping.update({client.id: task})
-        logger.debug("Updated _task_mapping with client id %d", client.id)
-        task.add_done_callback(
-            lambda task: self._task_mapping.pop(client.id))
-        task.add_done_callback(
-            lambda task: logger.debug("Deleted client id %d from _task_mapping", client.id))
+        logger.debug("Updated dict _client_mapping with client id %d", client.id)
+        client_task = asyncio.create_task(
+            self.client_handler(client))
+        client_task.set_name(f"Client-Handler-{client.id}")
+        logger.debug("Created task %s", client_task.get_name())
+        self._task_mapping.update({client.id: client_task})
+        logger.debug("Updated dict _task_mapping with client id %d", client.id)
 
-    # TODO: cleanup
-    def client_exception_cb(self, task):
-        if (exc := task.exception()) is not None:
-            if isinstance(exc, ClientDisconnectedError):
-                print(exc)
+    def _cleanup_client_handler_mappings(self, client_id):
+        logger.debug("Cleaning up after %s finished", task.get_name()) 
 
-                print(f"Cancelling client {exc.client_id} task")
-                try:
-                    self._task_mapping[exc.client_id].cancel()
-                except KeyError:
-                    pass
+        del self._task_mapping[client_id]
+        logger.debug("Deleted client id %d from dict _task_mapping", client_id)
 
-                self._client_mapping_cleanup(exc.client_id)
+        del self._client_mapping[client_id]
+        logger.debug("Deleted client id %d from dict _client_mapping", client_id)
 
-    def _client_mapping_cleanup(self, client_id):
+    def _cleanup_message_handler(self, task):
+        logger.debug("Cleaning up task %s", task.get_name())
+        self.background_tasks.discard(task)
+
+        exc = task.exception()
+        if (exc is not None) and isinstance(exc, ClientDisconnectedError):
+            try:
+                client_task = self._task_mapping[exc.client_id]
+                logger.debug(
+                    "Cancelling task %s since ClientDisconnectedError was raised",
+                    client_task.get_name(),
+                )
+                client_task.cancel()
+
+            # The Client-Handler task may have already been cancelled and
+            # cleaned itself up if another Message-Handler raised this
+            # exception for the same client id
+            except KeyError:
+                pass
+
+    async def message_handler(self, recipient, message):
         try:
-            del self._client_mapping[client_id]
-            logger.debug("Deleted client id %d from _client_mapping", client_id)
-        except KeyError:
-            pass
+            logger.debug(
+                "Sending message to client %d", recipient.id)
+            await recipient.write_message(message)
 
-    async def client_messages_server(self, client):
-        message = await client.read_message()
-        while message:
-            logger.debug("Message received from client %d: %s", client.id, message.decode().rstrip()) 
-            for _, client_ in self._client_mapping.items():
-                logger.debug("Sending message to client %d", client_.id)
-                task = asyncio.create_task(client_.write_message(message))
-                self.background_tasks.add(task)
-                task.add_done_callback(self.background_tasks.discard)
-                task.add_done_callback(self.client_exception_cb)
-                # TODO: Add timeout and close writer if it takes too long
+        except asyncio.CancelledError as e:
+            current_task = asyncio.current_task()
+            logger.debug("Cancelling task %s", current_task.get_name()) 
+            raise
+
+    async def client_handler(self, client):
+        try:
             message = await client.read_message()
+            while message:
+                logger.debug(
+                    "Message received from client %d: %s",
+                    client.id,
+                    message.decode().rstrip(),
+                ) 
 
-        logger.info("Client %d disconnected", client.id)
-        self._client_mapping_cleanup(client.id)
-        await client.close()
+                for _, recipient_client in self._client_mapping.items():
+                    message_task = asyncio.create_task(
+                        self.message_handler(recipient_client, message))
+
+                    message_task.set_name(f"Message-Handler-{uuid.uuid4()}")
+                    logger.debug("Created task %s", message_task.get_name())
+
+                    self.background_tasks.add(message_task)
+                    message_task.add_done_callback(
+                        self._cleanup_message_handler)
+
+                    # TODO: Add timeout and close writer if it takes too long
+                message = await client.read_message()
+
+        except asyncio.CancelledError as e:
+            current_task = asyncio.current_task()
+            logger.debug("Cancelling task %s", current_task.get_name()) 
+            raise
+
+        finally:
+            logger.info("Client %d disconnected", client.id)
+            self._cleanup_client_handler_mappings(client.id)
+            await client.close()
 
     # TODO: A Server.close() coroutine? Then can make Server an async context manager too
 
