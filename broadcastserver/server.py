@@ -50,7 +50,7 @@ class Server:
 
         # Stores references to Message-Handler Tasks so they aren't
         # garbage collected
-        self.background_tasks = set()
+        self._message_tasks = set()
 
     async def start_server(self):
         self._server = await asyncio.start_server(
@@ -91,7 +91,7 @@ class Server:
 
     def _cleanup_message_handler(self, task):
         logger.debug("Cleaning up task %s", task.get_name())
-        self.background_tasks.discard(task)
+        self._message_tasks.discard(task)
 
         exc = task.exception()
         if (exc is not None) and isinstance(exc, ClientDisconnectedError):
@@ -137,7 +137,7 @@ class Server:
                     message_task.set_name(f"Message-Handler-{uuid.uuid4()}")
                     logger.debug("Created task %s", message_task.get_name())
 
-                    self.background_tasks.add(message_task)
+                    self._message_tasks.add(message_task)
                     message_task.add_done_callback(
                         self._cleanup_message_handler)
                     message_task.add_done_callback(
