@@ -26,8 +26,7 @@ class Client:
             self._writer.write(message)
             await self._writer.drain()
         except (BrokenPipeError, ConnectionResetError) as e:
-            # TODO: Client must be removed from Server.clients too
-            print(self.id, e)
+            logger.debug("Failed to write to client %d: %s", self.id, e)
             await self.close()
             raise ClientDisconnectedError(client_id=self.id) from e
 
@@ -35,9 +34,8 @@ class Client:
         try:
             self._writer.close()
             await self._writer.wait_closed()
-        # Should ConnectionResetError be considered here too?
         except BrokenPipeError as e:
-            print(self.id, e)
+            logger.debug("Failed to close client %d: %s", self.id, e)
             raise ClientDisconnectedError(client_id=self.id) from e
 
 
