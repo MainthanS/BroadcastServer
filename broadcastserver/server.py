@@ -21,23 +21,30 @@ class Client:
         try:
             self._writer.write(message)
             await self._writer.drain()
-        except ConnectionResetError as e:
+        except (BrokenPipeError, ConnectionResetError) as e:
             # TODO: Client must be removed from Server.clients too
+            print(self.id, e)
             await self.close()
             raise ClientDisconnectedError(client_id=self.id) from e
 
     async def close(self):
-        self._writer.close()
-        await self._writer.wait_closed()
+        try:
+            self._writer.close()
+            await self._writer.wait_closed()
+        # Should ConnectionResetError be considered here too?
+        except BrokenPipeError as e:
+            print(self.id, e)
+            raise ClientDisconnectedError(client_id=self.id) from e
 
 
 class Server:
     def __init__(self, host="localhost", port=40004):
-        self.clients = []
+        self.clients = [] # Not needed now?
         self.host = host
         self.port = port
+        self._client_mapping = dict()
+        self._task_mapping = dict()
         self.background_tasks = set()
-        #self.background_tasks = dict()
 
     async def start_server(self):
         self._server = await asyncio.start_server(
@@ -48,14 +55,15 @@ class Server:
 
     def client_connected_cb(self, reader, writer):
         client = Client(reader, writer)
-        self.clients.append(client)
+        #self.clients.append(client)
+        self._client_mapping[client.id] = client
         task = asyncio.create_task(
             self.client_messages_server(client))
-        self.background_tasks.add(task)
-        #self.background_tasks.update({client.id: task})
-        task.add_done_callback(self.background_tasks.discard)
-        #task.add_done_callback(
-        #    lambda x: self.background_tasks.pop(client.id))
+        self._task_mapping.update({client.id: task})
+        task.add_done_callback(
+            lambda task: self._task_mapping.pop(client.id))
+        task.add_done_callback(
+            lambda task: print("Woah we just cancelled", client.id))
         print(f"Registered callback for client {client.id}")
 
     # TODO: cleanup
@@ -63,9 +71,23 @@ class Server:
         if (exc := task.exception()) is not None:
             if isinstance(exc, ClientDisconnectedError):
                 print(exc)
-                print(f"Deleting client {exc.client_id} from client list")
+
+                print(f"Deleting client {exc.client_id} from task mapping")
+                try:
+                    self._task_mapping[exc.client_id].cancel()
+                except KeyError:
+                    print(f"Client {exc.client_id} already removed from task mapping")
+                    pass
+
+                print(f"Deleting client {exc.client_id} from client mapping")
+                try:
+                    del self._client_mapping[exc.client_id]
+                except KeyError:
+                    print(f"Client {exc.client_id} already removed from mapping mapping")
+                    pass
             else:
                 print(exc)
+                raise exc
                 print("Some other exception")
 
 
@@ -73,7 +95,7 @@ class Server:
         message = await client.read_message()
         while message:
             print(f"User {client.id}: {message}")
-            for client_ in self.clients:
+            for _, client_ in self._client_mapping.items():
                 print(f"Broadcasting to {client_.id}")
                 task = asyncio.create_task(client_.write_message(message))
                 self.background_tasks.add(task)
@@ -85,6 +107,8 @@ class Server:
         print(f"User {client.id} disconnected")
         # XXX tmp debugging
         #self.clients.remove(client)
+        while True:
+            await asyncio.sleep(1)
         await client.close()
 
     # TODO: A Server.close() coroutine? Then can make Server an async context manager too
