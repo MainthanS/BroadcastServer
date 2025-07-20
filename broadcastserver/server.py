@@ -58,6 +58,7 @@ class Server:
             logger.info("Listening on %s:%d", self.host, self.port)
             await self._server.serve_forever()
 
+    # TODO Needs cleaning up
     def client_connected_cb(self, reader, writer):
         client = Client(reader, writer)
         logger.info("Client %d connected", client.id)
