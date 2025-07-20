@@ -22,7 +22,7 @@ class Client:
     def __init__(self, reader, writer):
         self._reader = reader
         self._writer = writer
-        self.id = writer._transport._sock_fd
+        self.id = uuid.uuid4()
 
     async def read_message(self):
         return await self._reader.readline()
@@ -85,15 +85,15 @@ class Server:
     # TODO Needs cleaning up
     def _client_connected_callback(self, reader, writer):
         client = Client(reader, writer)
-        logger.info("Client %d connected", client.id)
+        logger.info("Client %s connected", client.id)
         self.client_mapping[client.id] = client
-        logger.debug("Updated dict client_mapping with client id %d", client.id)
+        logger.debug("Updated dict client_mapping with client id %s", client.id)
         client_task = asyncio.create_task(
             self.client_handler(client))
         client_task.set_name(f"Client-Handler-{client.id}")
         logger.debug("Created task %s", client_task.get_name())
         self.task_mapping.update({client.id: client_task})
-        logger.debug("Updated dict task_mapping with client id %d", client.id)
+        logger.debug("Updated dict task_mapping with client id %s", client.id)
         client_task.add_done_callback(self._log_exception_callback)
 
     def _cleanup_client_handler_mappings(self, client_id):
@@ -101,10 +101,10 @@ class Server:
         logger.debug("Cleaning up after %s finished", task.get_name()) 
 
         del self.task_mapping[client_id]
-        logger.debug("Deleted client id %d from dict task_mapping", client_id)
+        logger.debug("Deleted client id %s from dict task_mapping", client_id)
 
         del self.client_mapping[client_id]
-        logger.debug("Deleted client id %d from dict client_mapping", client_id)
+        logger.debug("Deleted client id %s from dict client_mapping", client_id)
 
     def _cleanup_message_handler(self, task):
         logger.debug("Cleaning up task %s", task.get_name())
@@ -146,7 +146,7 @@ class Server:
             message = await client.read_message()
             while message:
                 logger.debug(
-                    "Message received from client %d: %s",
+                    "Message received from client %s: %s",
                     client.id,
                     message.decode().rstrip(),
                 ) 
@@ -173,7 +173,7 @@ class Server:
             raise
 
         finally:
-            logger.info("Client %d disconnected", client.id)
+            logger.info("Client %s disconnected", client.id)
             self._cleanup_client_handler_mappings(client.id)
             await client.close()
 
