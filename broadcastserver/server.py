@@ -56,6 +56,11 @@ class Server:
             logger.info("Listening on %s:%d", self.host, self.port)
             await self._server.serve_forever()
 
+    def log_exception_cb(self, task):
+        exc = task.exception()
+        if exc:
+            logger.error("%s failed: %s", task.get_name(), exc) 
+
     # TODO Needs cleaning up
     def client_connected_cb(self, reader, writer):
         client = Client(reader, writer)
@@ -68,8 +73,10 @@ class Server:
         logger.debug("Created task %s", client_task.get_name())
         self._task_mapping.update({client.id: client_task})
         logger.debug("Updated dict _task_mapping with client id %d", client.id)
+        client_task.add_done_callback(self.log_exception_cb)
 
     def _cleanup_client_handler_mappings(self, client_id):
+        task = asyncio.current_task()
         logger.debug("Cleaning up after %s finished", task.get_name()) 
 
         del self._task_mapping[client_id]
@@ -129,6 +136,8 @@ class Server:
                     self.background_tasks.add(message_task)
                     message_task.add_done_callback(
                         self._cleanup_message_handler)
+                    message_task.add_done_callback(
+                        self.log_exception_cb)
 
                     # TODO: Add timeout and close writer if it takes too long
                 message = await client.read_message()
