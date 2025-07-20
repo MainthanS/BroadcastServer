@@ -31,7 +31,7 @@ class Client:
             self._writer.write(message)
             await self._writer.drain()
         except (BrokenPipeError, ConnectionResetError) as e:
-            logger.debug("Failed to write to client %d: %s", self.id, e)
+            logger.debug("Failed to write to client %s: %s", self.id, e)
             await self.close()
             raise ClientDisconnectedError(client_id=self.id) from e
 
@@ -40,7 +40,7 @@ class Client:
             self._writer.close()
             await self._writer.wait_closed()
         except BrokenPipeError as e:
-            logger.debug("Failed to close client %d: %s", self.id, e)
+            logger.debug("Failed to close client %s: %s", self.id, e)
             raise ClientDisconnectedError(client_id=self.id) from e
 
 
@@ -72,7 +72,7 @@ class Server:
         if self._server is None:
             raise RuntimeError(f"Server {self!r} is closed")
         else:
-            logger.info("Listening on %s:%d", self.host, self.port)
+            logger.info("Listening on %s:%s", self.host, self.port)
             await self._server.serve_forever()
 
     async def message_handler(self, recipient, message):
@@ -80,7 +80,7 @@ class Server:
 
         try:
             logger.debug(
-                "Sending message to client %d", recipient.id)
+                "Sending message to client %s", recipient.id)
             await recipient.write_message(message)
 
         except asyncio.CancelledError:
