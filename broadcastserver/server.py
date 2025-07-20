@@ -79,17 +79,19 @@ class Server:
                     print(f"Client {exc.client_id} already removed from task mapping")
                     pass
 
-                print(f"Deleting client {exc.client_id} from client mapping")
-                try:
-                    del self._client_mapping[exc.client_id]
-                except KeyError:
-                    print(f"Client {exc.client_id} already removed from client mapping")
-                    pass
+                self._client_mapping_cleanup(exc.client_id)
             else:
                 print(exc)
                 raise exc
                 print("Some other exception")
 
+    def _client_mapping_cleanup(self, client_id):
+        print(f"Deleting client {client_id} from client mapping")
+        try:
+            del self._client_mapping[client_id]
+        except KeyError:
+            print(f"Client {client_id} already removed from client mapping")
+            pass
 
     async def client_messages_server(self, client):
         message = await client.read_message()
