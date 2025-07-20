@@ -1,4 +1,7 @@
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ClientDisconnectedError(Exception):
@@ -51,19 +54,24 @@ class Server:
             self.client_connected_cb, self.host, self.port)
 
         async with self._server:
+            logger.info("Listening on %s:%d", self.host, self.port)
             await self._server.serve_forever()
 
     def client_connected_cb(self, reader, writer):
         client = Client(reader, writer)
+        logger.info("Client %d connected", client.id)
         self._client_mapping[client.id] = client
+        logger.debug("Updated _client_mapping with client id %d", client.id)
         task = asyncio.create_task(
             self.client_messages_server(client))
         self._task_mapping.update({client.id: task})
+        logger.debug("Updated _task_mapping with client id %d", client.id)
         task.add_done_callback(
             lambda task: self._task_mapping.pop(client.id))
+        #task.add_done_callback(
+        #    lambda task: print("Woah we just cancelled", client.id))
         task.add_done_callback(
-            lambda task: print("Woah we just cancelled", client.id))
-        print(f"Registered callback for client {client.id}")
+            lambda task: logger.debug("Deleted client id %d from _task_mapping", client.id))
 
     # TODO: cleanup
     def client_exception_cb(self, task):
@@ -80,19 +88,18 @@ class Server:
                 self._client_mapping_cleanup(exc.client_id)
 
     def _client_mapping_cleanup(self, client_id):
-        print(f"Deleting client {client_id} from client mapping")
         try:
             del self._client_mapping[client_id]
+            logger.debug("Deleted client id %d from _client_mapping", client_id)
         except KeyError:
-            print(f"Client {client_id} already removed from client mapping")
             pass
 
     async def client_messages_server(self, client):
         message = await client.read_message()
         while message:
-            print(f"User {client.id}: {message}")
+            logger.debug("Message received from client %d: %s", client.id, message.decode().rstrip()) 
             for _, client_ in self._client_mapping.items():
-                print(f"Broadcasting to {client_.id}")
+                logger.debug("Sending message to client %d", client_.id)
                 task = asyncio.create_task(client_.write_message(message))
                 self.background_tasks.add(task)
                 task.add_done_callback(self.background_tasks.discard)
@@ -100,7 +107,7 @@ class Server:
                 # TODO: Add timeout and close writer if it takes too long
             message = await client.read_message()
 
-        print(f"User {client.id} disconnected")
+        logger.info("Client %d disconnected", client.id)
         self._client_mapping_cleanup(client.id)
         await client.close()
 
@@ -108,5 +115,7 @@ class Server:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     server = Server()
     asyncio.run(server.start_server())
+    # TODO: Server should shutdown if Tasks hit certain exceptions
