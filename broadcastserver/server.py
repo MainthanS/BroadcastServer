@@ -55,7 +55,6 @@ class Server:
 
     def client_connected_cb(self, reader, writer):
         client = Client(reader, writer)
-        #self.clients.append(client)
         self._client_mapping[client.id] = client
         task = asyncio.create_task(
             self.client_messages_server(client))
@@ -72,18 +71,13 @@ class Server:
             if isinstance(exc, ClientDisconnectedError):
                 print(exc)
 
-                print(f"Deleting client {exc.client_id} from task mapping")
+                print(f"Cancelling client {exc.client_id} task")
                 try:
                     self._task_mapping[exc.client_id].cancel()
                 except KeyError:
-                    print(f"Client {exc.client_id} already removed from task mapping")
                     pass
 
                 self._client_mapping_cleanup(exc.client_id)
-            else:
-                print(exc)
-                raise exc
-                print("Some other exception")
 
     def _client_mapping_cleanup(self, client_id):
         print(f"Deleting client {client_id} from client mapping")
@@ -107,10 +101,7 @@ class Server:
             message = await client.read_message()
 
         print(f"User {client.id} disconnected")
-        # XXX tmp debugging
-        #self.clients.remove(client)
-        while True:
-            await asyncio.sleep(1)
+        self._client_mapping_cleanup(client.id)
         await client.close()
 
     # TODO: A Server.close() coroutine? Then can make Server an async context manager too
