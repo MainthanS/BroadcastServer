@@ -83,7 +83,7 @@ class Server:
                 try:
                     del self._client_mapping[exc.client_id]
                 except KeyError:
-                    print(f"Client {exc.client_id} already removed from mapping mapping")
+                    print(f"Client {exc.client_id} already removed from client mapping")
                     pass
             else:
                 print(exc)
