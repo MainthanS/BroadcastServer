@@ -68,8 +68,6 @@ class Server:
         logger.debug("Updated _task_mapping with client id %d", client.id)
         task.add_done_callback(
             lambda task: self._task_mapping.pop(client.id))
-        #task.add_done_callback(
-        #    lambda task: print("Woah we just cancelled", client.id))
         task.add_done_callback(
             lambda task: logger.debug("Deleted client id %d from _task_mapping", client.id))
 
