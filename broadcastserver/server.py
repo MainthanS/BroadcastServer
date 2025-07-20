@@ -7,12 +7,18 @@ logger = logging.getLogger(__name__)
 
 class ClientDisconnectedError(Exception):
     """Exception raised when attempting to write to a disconnected client."""
+
     def __init__(self, client_id):
         super().__init__(f"ClientDisconnectedError with {client_id=}")
         self.client_id = client_id
 
 
 class Client:
+    """Represents a client connected to the broadcast server.
+
+    Wrapper around asyncio.StreamReader and asyncio.StreamWriter."""
+
+
     def __init__(self, reader, writer):
         self._reader = reader
         self._writer = writer
@@ -42,9 +48,10 @@ class Client:
 class Server:
     """Broadcast server encapsulating an asyncio.Server object.
 
-    foo
-    """
-    def __init__(self, host="localhost", port=40004):
+    Initialises and runs a broadcast server while managing client
+    connections and facilitating communication between them."""
+
+    def __init__(self, host, port):
         self.host = host
         self.port = port
 
@@ -56,15 +63,19 @@ class Server:
         # garbage collected
         self.message_tasks = set()
 
-        self.server = None
+        self._server = None
+
 
     async def start_server(self):
-        self.server = await asyncio.start_server(
+        self._server = await asyncio.start_server(
             self._client_connected_callback, self.host, self.port)
 
-        async with self.server:
+    async def serve_forever(self):
+        if self._server is None:
+            raise RuntimeError(f"Server {self!r} is closed")
+        else:
             logger.info("Listening on %s:%d", self.host, self.port)
-            await self.server.serve_forever()
+            await self._server.serve_forever()
 
     def _log_exception_callback(self, task):
         exc = task.exception()
@@ -166,11 +177,11 @@ class Server:
             self._cleanup_client_handler_mappings(client.id)
             await client.close()
 
-    # TODO: A Server.close() coroutine? Then can make Server an async context manager too
+    async def __aenter__(self):
+        return self
 
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    server = Server()
-    asyncio.run(server.start_server())
-    # TODO: Server should shutdown if Tasks hit certain exceptions
+    async def __aexit__(self, *exc):
+        logger.info("Closing server %s", repr(self))
+        if self._server:
+            self._server.close()
+            await self._server.wait_closed()
